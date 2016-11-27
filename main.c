@@ -91,11 +91,12 @@ command outputProgram[MPS];
  *  frameSize determines where new variables will be stored in the stack as well as the size of the stack
  *  commandPos is the current position for the end of the program code
  *  tokenNum is the token number of the current token. Used to tell the user where there is a problem
+ *  lexLev is the current lexicographical level we are in
  *  tok is the current token being parsed
  *  InFile and OutFile are the input and output files
  *      They are only opened in Main. They can be closed anywhere when we detect an error.
  */
-int pos = 0, frameSize = 4, commandPos = 0, tokenNum = 0;
+int pos = 0, frameSize = 4, commandPos = 0, tokenNum = 0, lexLev = 0;
 token tok;
 FILE *inFile, *outFile;
 
@@ -112,6 +113,11 @@ void condition();
 void expression();
 void term();
 void factor();
+/**
+ *  New Non-Terminal Symbols
+ *  Used in PL0 Grammar
+ */
+void procDec();
 
 /**
  *  These provide functionality to our compiler
@@ -124,6 +130,11 @@ void emitBark();                    //Outputs program to the file
 void ident(int kind);               //Adds ident to symbol table
 void getIdent(char * name);         //Finds memory address in symbol table and pushes value to top of stack
 void storeIdent(char * name);       //Finds memory address in symbol table and stores top of stack there
+/**
+ *  New functions
+ *
+ */
+void callIdent();                   //Finds the start of a function and jumps to it's code
 
 
 int main(int argc, char **argv)
@@ -164,9 +175,24 @@ void program()
 
 void block()
 {
+    int temp, tempframe;
+
+        temp = commandPos;                                  //We need to jump past the child procedures to the body of the function
+        bark(7, 0, 0);                                      //Placeholder jump command
+
     constDec();
     varDec();
+
+        tempframe = frameSize;
+
+    procDec();
+
+        rebark(temp, commandPos);                           //Correct or previous barked jump
+        bark(6, 0, tempframe);                              //Set up our stack frame with room for all of our variables
+
     statement();
+    if (lexLev > 0)                                         //If we're not in the bottom lex level
+        bark(2, 0, 0);                                      //We need to return from the procedure
 }
 
 void constDec()
@@ -199,7 +225,23 @@ void varDec()
         }
         consume(semicolonsym);
     }
-    bark(6, 0, frameSize);             //Set up our stack frame with room for all of our variables
+}
+
+void procDec()
+{
+    int temp;
+    lexLev++;                           //Everything in here is one lex level higher than outside
+    while (tok.idNum == procsym)
+    {
+        consume(procsym);
+        ident(3);
+        temp = pos;                     //Store the position of the symbol table
+        consume(semicolonsym);
+        block();
+        consume(semicolonsym);
+        pos = temp;                     //Return the symbol table to where we stored it to "delete" the variables for the procedure
+    }
+    lexLev--;                           //Once we're done in here we need to drop back down to the previous lex level
 }
 
 void statement()
@@ -213,6 +255,9 @@ void statement()
                         consume(becomessym);
                         expression();
                         storeIdent(id);         //Store the value at the top of the stack into the memory address for the identifier we started with.
+                        break;
+        case callsym  : consume(callsym);
+                        callIdent();
                         break;
         case beginsym : consume(beginsym);      //begin <statement> {; <statement>} end
                         statement();
@@ -229,7 +274,18 @@ void statement()
                         bark(8, 0, 0);          //Bark out a jump if condition resolved to 0
                         consume(thensym);
                         statement();
-                        rebark(save, commandPos);   //Update the mod of our jump command to go to the next instruction after the body of the then.
+                        if (tok.idNum == elsesym)
+                        {
+                            consume(elsesym);
+                            save2 = commandPos; //Save position of the jump to skip the else
+                            bark(7, 0, 0);      //If we hit this jump, the above condition was true and we do not want to do the else code
+                            rebark(save, commandPos);   //If the condition was false, we wish to jump here now
+                            statement();        //Perform the else statement
+                            rebark(save2, commandPos);  //If we jumped past the else, this is where we will end up.
+                        }else
+                        {
+                            rebark(save, commandPos);   //Update the mod of our jump command to go to the next instruction after the body of the then.
+                        }
                         break;
         case whilesym : consume(whilesym);      //while <condition> do <statement>
                         save2 = commandPos;
@@ -566,10 +622,21 @@ void ident(int kind)
     int i;
     for (i=0; i<pos; i++)
     {
-        if (strcmp(tok.ident, symbolTable[i].name) == 0)    //If there's already an identifier in our list with that name
+        if (symbolTable[i].kind == 3 && kind == 3)              //Can't have 2 accessible procedures with the same name
         {
-            printf("Error, duplicate identifier\n");    //Can't have two identifiers in the list at the same level with the same name
-            exit(0);
+            if (strcmp(tok.ident, symbolTable[i].name) == 0)
+            {
+                printf("Error, procedure with the name %s already exists.\n", tok.ident);
+                printf("At lex level %d\n", lexLev);
+                exit (0);
+            }
+        } else if (symbolTable[i].kind != 3 && kind != 3)       //if they are both non-procedures with the same name
+        {
+            if (strcmp(tok.ident, symbolTable[i].name) == 0 && symbolTable[i].level == lexLev)      //at the same lex level
+            {
+                printf("Error, duplicate identifier\n");    //Can't have two identifiers in the list at the same level with the same name
+                exit(0);
+            }
         }
     }
 
@@ -586,13 +653,22 @@ void ident(int kind)
         consume(eqlsym);                                //Next symbol
         symbolTable[pos].val = tok.value;               //Save the value of the constant into the table
         consume(numbersym);                             //Next symbol
+        symbolTable[pos].level = lexLev;                //Set the lex level of our constant
     }else if (kind == 2)                                //If our ident is a variable
     {
         symbolTable[pos].kind = 2;                      //Mark it as a variable
         strcpy(symbolTable[pos].name, tok.ident);       //Copy the name into the table
-        symbolTable[pos].level = 0;                     //We don't have procedures so everything's L level is 0
+        symbolTable[pos].level = lexLev;                //Set the proper lex level
         symbolTable[pos].addr = frameSize;              //Save the memory position of the variable into the table
         frameSize++;                                    //Increase the frame size
+        consume(identsym);                              //Next symbol
+    }else if (kind == 3)
+    {
+        symbolTable[pos].kind = 3;                      //Mark the identifier as a procedure
+        strcpy(symbolTable[pos].name, tok.ident);       //Copy the name into the table
+        symbolTable[pos].level = lexLev;                //Set the proper lex level
+        symbolTable[pos].addr = commandPos;             //Set the address of the procedure here
+        frameSize = 4;                                  //reset the framesize since we're going to have a new stack frame
         consume(identsym);                              //Next symbol
     }
     pos++;                                              //Next position in the symbol table
@@ -603,7 +679,7 @@ void getIdent(char * name)
     int i, loc = -1;
     for (i=0; i<pos; i++)                               //Search for the identifier in the table
     {
-        if (strcmp(name, symbolTable[i].name) == 0)
+        if (strcmp(name, symbolTable[i].name) == 0 && symbolTable[i].kind != 3)
         {
             loc = i;
         }
@@ -618,16 +694,16 @@ void getIdent(char * name)
         bark(1, 0, symbolTable[loc].val);              //Put the value on the stack
     }else                                               //Otherwise it's a variable
     {
-        bark(3, symbolTable[loc].level, symbolTable[loc].addr);    //Load it's value from memory, and put it on the top of the stack
-    }
-}
+        bark(3, lexLev - symbolTable[loc].level, symbolTable[loc].addr);    //Load it's value from memory, and put it on the top of the stack
+    }                                                   //The frame we need to go to will be our current lex level - the lex level of the symbol
+}                                                       //example the variable belongs to main so it's level is 0, we are in a child of main, so our current is 1. 1-0 = 1 or one frame back
 
 void storeIdent(char * name)
 {
     int i, loc = -1;
     for (i=0; i<pos; i++)
     {
-        if (strcmp(name, symbolTable[i].name) == 0)
+        if (strcmp(name, symbolTable[i].name) == 0 && symbolTable[i].kind != 3)
         {
             loc = i;
         }
@@ -643,8 +719,26 @@ void storeIdent(char * name)
         exit(0);
     } else                                              //Otherwise it's a variable and we can store it
     {
-        bark(4, symbolTable[loc].level, symbolTable[loc].addr);
+        bark(4, lexLev - symbolTable[loc].level, symbolTable[loc].addr);
     }
 }
 
-
+void callIdent()
+{
+    int i, loc = -1;
+    for (i=0; i<pos; i++)
+    {
+        if (strcmp(tok.ident, symbolTable[i].name) == 0 && symbolTable[i].kind == 3)
+        {
+            loc = i;
+            break;
+        }
+    }
+    if (loc == -1)
+    {
+        printf("Undeclared procedure\n");
+        exit(0);
+    }
+    consume(identsym);
+    bark(5, lexLev + 1 - symbolTable[loc].level, symbolTable[loc].addr);
+}

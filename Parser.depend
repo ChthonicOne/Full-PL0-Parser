@@ -30,3 +30,8 @@
 
 1479160442 c:\users\student\desktop\pl0-parser-master\lexer.h
 
+1480214782 source:d:\github\full-pl0-parser\lexer.c
+	<stdio.h>
+	<stdlib.h>
+	<string.h>
+
