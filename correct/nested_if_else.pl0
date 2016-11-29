@@ -1,0 +1,19 @@
+/* tests nested if/else in a procedure */
+
+var f, n;
+procedure fact;
+	var ans1, count;
+	begin
+		ans1:= n;
+		count := 3;
+		n:= n-1;
+		if count > 0 then
+			if n = 0 then f := 1 else call fact;
+		else f:=f*ans1;
+		count := count -1;
+	end;
+begin
+	n:=5;
+	call fact;
+	write f;
+end.

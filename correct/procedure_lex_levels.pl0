@@ -1,0 +1,21 @@
+procedure highest;
+  procedure middle;
+  var a;
+    procedure lowest;
+    const c = 9;
+      begin
+      w := c;
+    end;
+  begin
+    a:=5;
+    w := 9;
+    call lowest;
+  end;
+begin
+  w := 7;
+  call middle;
+end;
+
+begin
+	call highest;
+end.

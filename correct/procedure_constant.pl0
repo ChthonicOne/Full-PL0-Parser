@@ -1,0 +1,18 @@
+/* tests constant declared in a procedure */
+
+var f, n;
+procedure fact;
+	var ans1, ans2;
+	const b=2;
+	begin
+		ans1:= n;
+		ans2 := b;
+		n:= n-1;
+		if ans2 = b then ans1:=b
+		else ans2 := b+1;
+	end;
+begin
+	n:=5;
+	call fact;
+	write f;
+end.
