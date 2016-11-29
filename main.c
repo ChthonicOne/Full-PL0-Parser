@@ -317,6 +317,7 @@ void condition()
     {
         consume(oddsym);
         expression();
+        bark(2, 0, 6);                      //Bark out the oddsym
     } else
     {
         expression();
