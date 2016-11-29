@@ -1,0 +1,29 @@
+Team name:  Compiler Builder 11
+Emily ["Mel"] Pelchat
+Hunter Pierce
+Jacob Hazelbaker
+Jessica ["Kika"] Wingert
+
+===============================================================
+Emily ["Mel"] Pelchat
+
+Adapted our previous parser code to function as a full parser.
+Implemented new functions to handle procedures.
+
+===============================================================
+Hunter Pierce
+
+Created example test programs to run with our compiled program.
+Inspected adapted compiler.c code for errors.
+
+===============================================================
+Jacob Hazelbaker
+
+Created the Makefile for quickly compiling the program.
+Reviewed code for errors and created collaborations.txt
+
+===============================================================
+Jessica ["Kika"] Wingert
+
+Created example test programs to run with our compiled program.
+Analyzed our adapted code to ensure proper functionality.
