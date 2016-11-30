@@ -1,0 +1,1 @@
+7. Assignment to procedure not allowed

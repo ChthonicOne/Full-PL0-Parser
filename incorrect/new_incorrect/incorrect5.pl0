@@ -1,0 +1,10 @@
+var x,y,z,v,w;
+
+    procedure a;
+         var x y,u,v;
+
+ begin
+    z:=1;
+    x:=y+z+w;
+    
+ end.

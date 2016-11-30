@@ -1,0 +1,13 @@
+var f, n;
+procedure fact;
+	var ans1;
+	begin
+		ans1:= n;
+		n:= n-1;
+		if n > call then call fact;
+	end;
+begin
+	n:=5;
+	call fact;
+	write f;
+end.
